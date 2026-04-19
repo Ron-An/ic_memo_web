@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IC Memo Agent — 투심보고서 AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.0/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+  <header class="border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span class="text-2xl">📝</span>
+      <h1 class="text-xl font-bold">IC Memo Agent</h1>
+      <span class="text-sm text-slate-400 hidden md:inline">투심보고서 AI · Opus 4.6 + Red Team 4 페르소나</span>
+    </div>
+    <button x-data @click="$dispatch('open-settings')" class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded">⚙️ 설정</button>
+  </header>
+
+  <main x-data="icMemoApp()" x-init="init()" @open-settings.window="showSettings = true" class="max-w-6xl mx-auto p-6">
+    <!-- Settings Modal -->
+    <div x-show="showSettings" x-cloak class="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div class="bg-slate-800 p-6 rounded-lg max-w-md w-full space-y-3">
+        <h2 class="text-lg font-bold">설정</h2>
+        <label class="block">
+          <span class="text-sm text-slate-300">API Endpoint</span>
+          <input type="url" x-model="endpoint" class="w-full mt-1 p-2 bg-slate-900 border border-slate-700 rounded" placeholder="https://xxx.trycloudflare.com" />
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-300">API Key</span>
+          <input type="password" x-model="apiKey" class="w-full mt-1 p-2 bg-slate-900 border border-slate-700 rounded" placeholder="X-API-Key 헤더 값" />
+        </label>
+        <div class="flex justify-end gap-2 pt-2">
+          <button @click="showSettings = false" class="px-3 py-1 bg-slate-700 rounded">취소</button>
+          <button @click="saveSettings()" class="px-3 py-1 bg-blue-600 rounded">저장</button>
+        </div>
+        <button @click="checkHealth()" class="text-xs text-blue-400 underline">연결 테스트</button>
+        <p x-show="healthStatus" class="text-xs" :class="healthOk ? 'text-green-400' : 'text-red-400'" x-text="healthStatus"></p>
+      </div>
+    </div>
+
+    <!-- Progress Tracker -->
+    <nav class="flex flex-wrap justify-center gap-2 md:gap-4 mb-6">
+      <template x-for="(label, i) in steps" :key="i">
+        <button @click="step = i + 1" class="text-sm px-3 py-2 rounded transition"
+                :class="step === i + 1 ? 'bg-blue-600' : (step > i + 1 ? 'bg-green-700' : 'bg-slate-800 hover:bg-slate-700')">
+          <span x-text="(step > i + 1 ? '✅ ' : (step === i + 1 ? '🔵 ' : '⚪ '))"></span>
+          <span x-text="(i + 1) + '. ' + label"></span>
+        </button>
+      </template>
+    </nav>
+
+    <!-- Step 1: 회사명 + 업로드 -->
+    <section x-show="step === 1" class="bg-slate-800 p-6 rounded-lg space-y-4">
+      <h2 class="text-xl font-bold">① 업로드</h2>
+      <div class="flex flex-col md:flex-row gap-3">
+        <input x-model="companyName" placeholder="회사명" class="flex-1 p-2 bg-slate-900 border border-slate-700 rounded" />
+        <button @click="createRun()" :disabled="!companyName.trim()" class="px-4 py-2 bg-blue-600 disabled:bg-slate-700 rounded">🆕 새 Run</button>
+      </div>
+      <p x-show="currentRunId" class="text-sm text-slate-400">현재 Run: <span x-text="currentRunId" class="font-mono"></span></p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3" x-show="currentRunId">
+        <template x-for="slot in slots" :key="slot.id">
+          <div class="border border-slate-700 p-3 rounded">
+            <div class="flex justify-between items-center mb-1">
+              <span class="font-semibold" x-text="slot.label"></span>
+              <span class="text-xs" :class="slot.required ? 'text-red-400' : 'text-green-400'" x-text="slot.required ? '🔴 필수' : '🟢 선택'"></span>
+            </div>
+            <p class="text-xs text-slate-400 mb-2" x-text="slot.description"></p>
+            <input type="file" :accept="slot.accept"
+                   @change="uploadFile(slot.id, $event.target.files[0]); $event.target.value=''"
+                   class="text-xs w-full" />
+            <ul class="text-xs text-slate-400 mt-1">
+              <template x-for="f in (uploadedFiles[slot.id] || [])" :key="f"><li>📄 <span x-text="f"></span></li></template>
+            </ul>
+          </div>
+        </template>
+      </div>
+
+      <button @click="step = 2" :disabled="!currentRunId || Object.keys(uploadedFiles).length === 0"
+              class="px-4 py-2 bg-blue-600 disabled:bg-slate-700 rounded">➡️ 다음: 파싱</button>
+    </section>
+
+    <!-- Step 2: 파싱 + 팩트 -->
+    <section x-show="step === 2" class="bg-slate-800 p-6 rounded-lg space-y-4">
+      <h2 class="text-xl font-bold">② 파싱 & 팩트 추출</h2>
+      <div class="flex flex-wrap gap-2">
+        <button @click="parseAll()" class="px-4 py-2 bg-blue-600 rounded">🚀 파싱 시작</button>
+        <button @click="extractFacts()" class="px-4 py-2 bg-blue-600 rounded">🔬 팩트 추출</button>
+      </div>
+      <pre x-show="parseResult" class="text-xs bg-slate-900 p-3 rounded overflow-auto max-h-64" x-text="JSON.stringify(parseResult, null, 2)"></pre>
+      <pre x-show="factSheet" class="text-xs bg-slate-900 p-3 rounded overflow-auto max-h-96" x-text="JSON.stringify(factSheet, null, 2)"></pre>
+      <button @click="step = 3" :disabled="!factSheet" class="px-4 py-2 bg-blue-600 disabled:bg-slate-700 rounded">➡️ 다음: Draft</button>
+    </section>
+
+    <!-- Step 3: Draft -->
+    <section x-show="step === 3" class="bg-slate-800 p-6 rounded-lg space-y-4">
+      <h2 class="text-xl font-bold">③ Draft 생성</h2>
+      <button @click="generateDraft()" :disabled="generating" class="px-4 py-2 bg-blue-600 disabled:bg-slate-700 rounded">
+        <span x-text="generating ? '⏳ 생성 중...' : '📝 Draft 생성 (스트리밍)'"></span>
+      </button>
+      <div x-show="thinkingBuffer" class="bg-yellow-900/20 border border-yellow-700 p-3 rounded text-xs">
+        <p class="font-bold text-yellow-400 mb-1">💭 Thinking</p>
+        <pre class="whitespace-pre-wrap" x-text="thinkingBuffer.slice(-2000)"></pre>
+      </div>
+      <article x-show="draftBuffer" class="prose prose-invert max-w-none bg-slate-900 p-4 rounded overflow-auto"
+               x-html="renderMarkdown(draftBuffer)"></article>
+      <button @click="step = 4" :disabled="!draftBuffer" class="px-4 py-2 bg-blue-600 disabled:bg-slate-700 rounded">➡️ Red Team</button>
+    </section>
+
+    <!-- Step 4: Red Team -->
+    <section x-show="step === 4" class="bg-slate-800 p-6 rounded-lg space-y-4">
+      <h2 class="text-xl font-bold">④ Red Team 공방</h2>
+      <div class="flex gap-3 items-center">
+        <label>라운드:</label>
+        <input type="number" x-model.number="rtRounds" min="1" max="3" class="w-16 p-1 bg-slate-900 border border-slate-700 rounded" />
+        <button @click="runRedteam()" class="px-4 py-2 bg-red-600 rounded">🔥 실행</button>
+      </div>
+      <pre x-show="redteamResult" class="text-xs bg-slate-900 p-3 rounded overflow-auto max-h-96" x-text="JSON.stringify(redteamResult, null, 2)"></pre>
+      <button @click="step = 5" class="px-4 py-2 bg-blue-600 rounded">➡️ Final Touch</button>
+    </section>
+
+    <!-- Step 5: Final Touch + Export -->
+    <section x-show="step === 5" class="bg-slate-800 p-6 rounded-lg space-y-4">
+      <h2 class="text-xl font-bold">⑤ Final Touch & Export</h2>
+      <div class="flex flex-wrap gap-3">
+        <a :href="downloadUrl('md')" target="_blank" class="px-4 py-2 bg-green-600 rounded">📝 final.md</a>
+        <a :href="downloadUrl('docx')" target="_blank" class="px-4 py-2 bg-green-600 rounded">📄 final.docx</a>
+      </div>
+      <p class="text-xs text-slate-400">다운로드 시 X-API-Key 헤더가 필요할 수 있습니다 — 백엔드 설정 확인.</p>
+    </section>
+  </main>
+
+  <script src="api-client.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
