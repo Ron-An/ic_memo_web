@@ -59,6 +59,17 @@ function icMemoApp() {
     // --- step 2 ---
     parseResult: null,
     factSheet: null,
+    step2Running: false,
+    step2Phase: "",          // "" | "parsing" | "extracting" | "done"
+    step2StartedAt: 0,
+    step2ElapsedSec: 0,
+    _step2Timer: null,
+
+    // --- step 4 ---
+    rtRunning: false,
+    rtStartedAt: 0,
+    rtElapsedSec: 0,
+    _rtTimer: null,
 
     // --- step 3 ---
     generating: false,
@@ -194,19 +205,78 @@ function icMemoApp() {
     },
 
     // ── Step 2~5 ──────────────────────────────────────────────
+    // ── Step 2: 진행 상태 helper ──────────────────────────────
+    _step2Start(phase) {
+      this.step2Running = true;
+      this.step2Phase = phase;
+      this.step2StartedAt = Date.now();
+      this.step2ElapsedSec = 0;
+      if (this._step2Timer) clearInterval(this._step2Timer);
+      this._step2Timer = setInterval(() => {
+        this.step2ElapsedSec = Math.floor((Date.now() - this.step2StartedAt) / 1000);
+      }, 1000);
+    },
+    _step2Stop(phase = "done") {
+      this.step2Running = false;
+      this.step2Phase = phase;
+      if (this._step2Timer) { clearInterval(this._step2Timer); this._step2Timer = null; }
+    },
+
     async parseAll() {
+      this._step2Start("parsing");
       try {
         this.parseResult = await this.client.parse(this.currentRunId);
+        this._step2Stop("parsed");
       } catch (e) {
-        alert(e.message);
+        this._step2Stop("error");
+        alert(`파싱 실패: ${e.message}`);
       }
     },
 
     async extractFacts() {
+      this._step2Start("extracting");
       try {
         this.factSheet = await this.client.facts(this.currentRunId);
+        this._step2Stop("done");
       } catch (e) {
-        alert(e.message);
+        this._step2Stop("error");
+        alert(`팩트 추출 실패: ${e.message}`);
+      }
+    },
+
+    // ── 통합 — 파싱 → 팩트 추출 자동 연계 ────────────────────
+    async parseAndExtract() {
+      // Phase 1: parsing
+      this._step2Start("parsing");
+      try {
+        this.parseResult = await this.client.parse(this.currentRunId);
+      } catch (e) {
+        this._step2Stop("error");
+        alert(`파싱 실패: ${e.message}`);
+        return;
+      }
+      // Phase 2: facts (즉시 이어서)
+      this.step2Phase = "extracting";
+      try {
+        this.factSheet = await this.client.facts(this.currentRunId);
+        this._step2Stop("done");
+      } catch (e) {
+        this._step2Stop("error");
+        alert(`팩트 추출 실패: ${e.message}\n(파싱은 성공했으니 별도로 '팩트 추출'만 재시도 가능)`);
+      }
+    },
+
+    step2StatusText() {
+      const m = Math.floor(this.step2ElapsedSec / 60);
+      const s = this.step2ElapsedSec % 60;
+      const time = m ? `${m}분 ${s}초` : `${s}초`;
+      switch (this.step2Phase) {
+        case "parsing":    return `① 문서 파싱 중... (${time})`;
+        case "extracting": return `② FactSheet 추출 중 — Opus + Thinking 호출 (${time}, 1-3분 소요)`;
+        case "parsed":     return `✅ 파싱 완료 (${time})`;
+        case "done":       return `✅ 파싱 + 팩트 추출 완료 (총 ${time})`;
+        case "error":      return `❌ 오류 — 백엔드/API 키 확인`;
+        default: return "";
       }
     },
 
