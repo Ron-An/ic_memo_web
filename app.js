@@ -12,7 +12,7 @@ function icMemoApp() {
     { id: "tech_patents",     label: "6. 기술자료/특허",         required: false, accept: ".pdf,.docx",                     description: "기술 사양/특허" },
     { id: "prior_ic_memo",    label: "7. 기존 IC memo",         required: false, accept: ".pdf,.docx",                     description: "공동 투자사 등" },
     { id: "ir_meeting_notes", label: "8. IR 미팅노트",          required: false, accept: ".docx,.md,.txt,.mp3,.wav,.m4a", description: "미팅 기록/녹음" },
-    { id: "thesis_checklist", label: "9. 투자 목적+Checklist",   required: true,  accept: ".md,.txt,.docx",                description: "투자 가설" },
+    { id: "thesis_checklist", label: "9. 투자 목적+Checklist",   required: false, accept: ".md,.txt,.docx",                description: "투자 가설 (선택)" },
     { id: "one_pager",        label: "10. 1 Pager",             required: false, accept: ".md,.txt,.docx",                description: "요약 1장" },
     { id: "qna",              label: "11. Q&A 정리",            required: false, accept: ".md,.txt,.docx",                description: "질의응답" },
     { id: "interviews",       label: "12. 인터뷰",              required: false, accept: ".docx,.md,.txt,.mp3,.wav,.m4a", description: "전문가/고객/주주" },
@@ -249,6 +249,28 @@ function icMemoApp() {
         this.redteamResult = await this.client.redteam(this.currentRunId, this.rtRounds);
       } catch (e) {
         alert(e.message);
+      }
+    },
+
+    // --- 외부 리서치 (web_search 기반, draft 에 인서트) ---
+    externalRunning: false,
+    externalResult: null,
+    async runExternalResearch() {
+      if (!this.currentRunId) { alert("Run 이 없습니다."); return; }
+      this.externalRunning = true;
+      this.externalResult = null;
+      try {
+        const r = await this.client.externalResearch(this.currentRunId, { max_searches: 8 });
+        this.externalResult = r;
+        if (r.sections_with_research > 0) {
+          alert(`✅ ${r.sections_with_research}개 섹션에 외부 리서치 인서트됨\n새 draft 버전: v${r.new_draft_version}\n\n("Final Touch" 단계에서 다운로드 가능)`);
+        } else {
+          alert("⚠️ 외부 리서치 검색 결과 0건 — 회사명이 너무 일반적이거나 공개 정보 부족");
+        }
+      } catch (e) {
+        alert(`외부 리서치 실패: ${e.message}`);
+      } finally {
+        this.externalRunning = false;
       }
     },
 

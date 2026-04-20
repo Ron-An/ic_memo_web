@@ -72,6 +72,9 @@ class IcMemoApiClient {
   redteam(runId, rounds = 2) {
     return this._json("POST", `/api/runs/${runId}/redteam`, { rounds });
   }
+  externalResearch(runId, opts = {}) {
+    return this._json("POST", `/api/runs/${runId}/external_research`, opts);
+  }
 
   // --- Streaming + Export (URLs) ---
   // EventSource cannot send custom headers — pass key via query string,
