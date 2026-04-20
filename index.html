@@ -1,139 +1,345 @@
 <!DOCTYPE html>
-<html lang="ko" class="dark">
+<html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>IC Memo Agent — 투심보고서 AI</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap">
+
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans KR', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+          },
+          colors: {
+            ink: {
+              50: '#F8FAFC', 100: '#EFF4FB', 200: '#E2E8F0',
+              300: '#CBD5E1', 500: '#64748B', 600: '#475569', 900: '#0F172A',
+            },
+            brand: {
+              50: '#EFF4FB', 100: '#DCE8FB', 200: '#B7CDF7',
+              400: '#60A5FA', 500: '#3B82F6', 800: '#1E40AF',
+            },
+          },
+          boxShadow: {
+            soft: '0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.06)',
+            glass: '0 1px 0 rgba(255,255,255,0.8) inset, 0 8px 32px rgba(15,23,42,0.08)',
+          },
+        },
+      },
+    };
+  </script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.0/dist/cdn.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
-  <header class="border-b border-slate-700 px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <span class="text-2xl">📝</span>
-      <h1 class="text-xl font-bold">IC Memo Agent</h1>
-      <span class="text-sm text-slate-400 hidden md:inline">투심보고서 AI · Opus 4.6 + Red Team 4 페르소나</span>
+<body class="bg-ink-50 text-ink-900 font-sans min-h-screen antialiased">
+
+<div x-data="icMemoApp()" x-init="init()">
+
+  <!-- ─────────────────── Header ─────────────────── -->
+  <header class="sticky top-0 z-30 backdrop-blur bg-white/75 border-b border-ink-200">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-800 flex items-center justify-center text-white font-bold shadow-soft">📝</div>
+        <div>
+          <h1 class="text-lg font-semibold tracking-tight">IC Memo Agent</h1>
+          <p class="text-xs text-ink-500 font-medium">투심보고서 AI · Opus 4.6 + Red Team 4 페르소나</p>
+        </div>
+      </div>
+      <button @click="$dispatch('open-settings')"
+              class="text-sm px-3 py-1.5 rounded-lg border border-ink-200 hover:border-brand-400 hover:bg-brand-50 transition">
+        ⚙️ <span class="font-medium">설정</span>
+      </button>
     </div>
-    <button x-data @click="$dispatch('open-settings')" class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded">⚙️ 설정</button>
   </header>
 
-  <main x-data="icMemoApp()" x-init="init()" @open-settings.window="showSettings = true" class="max-w-6xl mx-auto p-6">
-    <!-- Settings Modal -->
-    <div x-show="showSettings" x-cloak class="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div class="bg-slate-800 p-6 rounded-lg max-w-md w-full space-y-3">
-        <h2 class="text-lg font-bold">설정</h2>
-        <label class="block">
-          <span class="text-sm text-slate-300">API Endpoint</span>
-          <input type="url" x-model="endpoint" class="w-full mt-1 p-2 bg-slate-900 border border-slate-700 rounded" placeholder="https://xxx.trycloudflare.com" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-300">API Key</span>
-          <input type="password" x-model="apiKey" class="w-full mt-1 p-2 bg-slate-900 border border-slate-700 rounded" placeholder="X-API-Key 헤더 값" />
-        </label>
-        <div class="flex justify-end gap-2 pt-2">
-          <button @click="showSettings = false" class="px-3 py-1 bg-slate-700 rounded">취소</button>
-          <button @click="saveSettings()" class="px-3 py-1 bg-blue-600 rounded">저장</button>
-        </div>
-        <button @click="checkHealth()" class="text-xs text-blue-400 underline">연결 테스트</button>
-        <p x-show="healthStatus" class="text-xs" :class="healthOk ? 'text-green-400' : 'text-red-400'" x-text="healthStatus"></p>
+  <!-- ─────────────────── Settings Modal ─────────────────── -->
+  <div x-show="showSettings" x-cloak
+       @open-settings.window="showSettings = true"
+       @keydown.escape.window="showSettings = false"
+       class="fixed inset-0 bg-ink-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div @click.away="showSettings = false"
+         class="bg-white rounded-2xl shadow-glass max-w-md w-full p-6 space-y-4 border border-ink-200">
+      <div class="flex items-start justify-between">
+        <h2 class="text-xl font-semibold">설정</h2>
+        <button @click="showSettings = false" class="text-ink-500 hover:text-ink-900 text-xl leading-none">×</button>
+      </div>
+      <p class="text-sm text-ink-500">백엔드 API 엔드포인트와 키를 설정하세요. 브라우저 localStorage에 저장됩니다.</p>
+
+      <label class="block">
+        <span class="text-sm font-medium text-ink-600">API Endpoint</span>
+        <input type="url" x-model="endpoint" placeholder="https://xxx.trycloudflare.com"
+               class="mt-1 w-full px-3 py-2 bg-ink-50 border border-ink-200 rounded-lg focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition" />
+      </label>
+      <label class="block">
+        <span class="text-sm font-medium text-ink-600">API Key</span>
+        <input type="password" x-model="apiKey" placeholder="dev (개발 모드면 임의 값)"
+               class="mt-1 w-full px-3 py-2 bg-ink-50 border border-ink-200 rounded-lg focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition" />
+      </label>
+
+      <div class="flex items-center gap-2 pt-2">
+        <button @click="checkHealth()" class="text-sm px-3 py-1.5 rounded-lg border border-ink-200 hover:border-brand-400 hover:bg-brand-50 transition">
+          🔍 연결 테스트
+        </button>
+        <span x-show="healthStatus" :class="healthOk ? 'text-emerald-600' : 'text-red-500'" class="text-sm font-medium" x-text="healthStatus"></span>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-ink-200">
+        <button @click="showSettings = false" class="px-4 py-2 text-ink-600 hover:bg-ink-100 rounded-lg transition">취소</button>
+        <button @click="saveSettings()" class="px-4 py-2 bg-brand-800 hover:bg-brand-500 text-white font-medium rounded-lg shadow-soft transition">저장</button>
       </div>
     </div>
+  </div>
 
-    <!-- Progress Tracker -->
-    <nav class="flex flex-wrap justify-center gap-2 md:gap-4 mb-6">
+  <!-- ─────────────────── Main ─────────────────── -->
+  <main class="max-w-6xl mx-auto px-6 py-8">
+
+    <!-- Hero strip -->
+    <div class="mb-8">
+      <h2 class="text-3xl font-semibold tracking-tight text-ink-900">투심보고서 자동 생성</h2>
+      <p class="text-ink-500 mt-1">12개 입력 → 8섹션 markdown · Red Team 공방 · 심사역 final touch</p>
+    </div>
+
+    <!-- Step Tracker -->
+    <nav class="flex items-stretch gap-2 mb-8 overflow-x-auto pb-2">
       <template x-for="(label, i) in steps" :key="i">
-        <button @click="step = i + 1" class="text-sm px-3 py-2 rounded transition"
-                :class="step === i + 1 ? 'bg-blue-600' : (step > i + 1 ? 'bg-green-700' : 'bg-slate-800 hover:bg-slate-700')">
-          <span x-text="(step > i + 1 ? '✅ ' : (step === i + 1 ? '🔵 ' : '⚪ '))"></span>
-          <span x-text="(i + 1) + '. ' + label"></span>
+        <button @click="step = i + 1"
+                class="flex-1 min-w-[120px] text-left px-4 py-3 rounded-xl border transition shadow-soft"
+                :class="step === i + 1
+                  ? 'bg-brand-800 border-brand-800 text-white'
+                  : (step > i + 1 ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                                  : 'bg-white border-ink-200 text-ink-500 hover:border-brand-400')">
+          <div class="text-xs font-semibold uppercase tracking-wider opacity-80" x-text="`Step ${i+1}`"></div>
+          <div class="text-sm font-semibold mt-0.5" x-text="label"></div>
         </button>
       </template>
     </nav>
 
-    <!-- Step 1: 회사명 + 업로드 -->
-    <section x-show="step === 1" class="bg-slate-800 p-6 rounded-lg space-y-4">
-      <h2 class="text-xl font-bold">① 업로드</h2>
-      <div class="flex flex-col md:flex-row gap-3">
-        <input x-model="companyName" placeholder="회사명" class="flex-1 p-2 bg-slate-900 border border-slate-700 rounded" />
-        <button @click="createRun()" :disabled="!companyName.trim()" class="px-4 py-2 bg-blue-600 disabled:bg-slate-700 rounded">🆕 새 Run</button>
-      </div>
-      <p x-show="currentRunId" class="text-sm text-slate-400">현재 Run: <span x-text="currentRunId" class="font-mono"></span></p>
+    <!-- ════════ Step 1: 업로드 ════════ -->
+    <section x-show="step === 1" class="space-y-6">
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3" x-show="currentRunId">
-        <template x-for="slot in slots" :key="slot.id">
-          <div class="border border-slate-700 p-3 rounded">
-            <div class="flex justify-between items-center mb-1">
-              <span class="font-semibold" x-text="slot.label"></span>
-              <span class="text-xs" :class="slot.required ? 'text-red-400' : 'text-green-400'" x-text="slot.required ? '🔴 필수' : '🟢 선택'"></span>
-            </div>
-            <p class="text-xs text-slate-400 mb-2" x-text="slot.description"></p>
-            <input type="file" :accept="slot.accept"
-                   @change="uploadFile(slot.id, $event.target.files[0]); $event.target.value=''"
-                   class="text-xs w-full" />
-            <ul class="text-xs text-slate-400 mt-1">
-              <template x-for="f in (uploadedFiles[slot.id] || [])" :key="f"><li>📄 <span x-text="f"></span></li></template>
-            </ul>
+      <!-- 회사명 + 새 Run -->
+      <div class="bg-white rounded-2xl shadow-soft border border-ink-200 p-6">
+        <div class="flex items-end gap-3">
+          <label class="flex-1 block">
+            <span class="text-sm font-medium text-ink-600">회사명</span>
+            <input x-model="companyName" placeholder="예: 알파로보틱스"
+                   class="mt-1 w-full px-4 py-2.5 bg-ink-50 border border-ink-200 rounded-lg text-base focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none transition" />
+          </label>
+          <button @click="createRun()" :disabled="!companyName.trim()"
+                  class="px-5 py-2.5 bg-brand-800 hover:bg-brand-500 disabled:bg-ink-200 disabled:text-ink-500 disabled:cursor-not-allowed text-white font-semibold rounded-lg shadow-soft transition whitespace-nowrap">
+            🆕 새 Run 시작
+          </button>
+        </div>
+        <p x-show="currentRunId" class="text-sm text-emerald-600 mt-3 font-medium">
+          ✅ 활성 Run: <code class="bg-emerald-50 px-1.5 py-0.5 rounded text-xs" x-text="currentRunId"></code>
+        </p>
+      </div>
+
+      <!-- BULK upload (drag & drop) -->
+      <div x-show="currentRunId" class="bg-white rounded-2xl shadow-soft border border-ink-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-ink-200 flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-semibold">📂 모든 파일 한 번에 업로드</h3>
+            <p class="text-xs text-ink-500 mt-0.5">파일명·확장자로 자동 슬롯 분류 (수동 변경 가능)</p>
           </div>
-        </template>
+          <div x-show="bulkQueue.length" class="text-xs text-ink-500">
+            대기 <span class="font-semibold text-brand-800" x-text="bulkQueue.length"></span>건
+          </div>
+        </div>
+
+        <!-- Dropzone -->
+        <div class="p-6">
+          <label
+            @dragover.prevent="dragActive = true"
+            @dragenter.prevent="dragActive = true"
+            @dragleave.prevent="dragActive = false"
+            @drop.prevent="dragActive = false; handleDrop($event)"
+            :class="dragActive ? 'border-brand-500 bg-brand-50 ring-4 ring-brand-100' : 'border-ink-300 hover:border-brand-400 hover:bg-brand-50/40'"
+            class="block border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition">
+            <input type="file" multiple class="hidden" @change="handleBulkPick($event)"
+                   accept=".pdf,.pptx,.docx,.xlsx,.xls,.txt,.md,.mp3,.wav,.m4a,.zip" />
+            <div class="text-4xl mb-2" x-text="dragActive ? '📥' : '📂'"></div>
+            <p class="text-base font-medium text-ink-900">
+              <span x-show="!dragActive">여기로 파일을 끌어다 놓거나 클릭해서 선택</span>
+              <span x-show="dragActive" class="text-brand-800">놓으면 분류됩니다 ↓</span>
+            </p>
+            <p class="text-sm text-ink-500 mt-2">PDF · PPTX · DOCX · XLSX · TXT · MD · MP3 · WAV · ZIP — 12 슬롯 모두</p>
+          </label>
+        </div>
+
+        <!-- Bulk preview/edit table -->
+        <div x-show="bulkQueue.length" class="border-t border-ink-200 px-6 py-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-medium text-ink-600">자동 분류 결과 — 슬롯 변경 후 일괄 업로드</p>
+            <div class="flex gap-2">
+              <button @click="bulkQueue = []" class="text-xs text-ink-500 hover:text-red-500 transition">전체 비우기</button>
+              <button @click="uploadBulk()" :disabled="!bulkQueue.length || bulkUploading"
+                      class="px-4 py-1.5 text-sm font-semibold bg-brand-800 hover:bg-brand-500 disabled:bg-ink-200 disabled:text-ink-500 text-white rounded-lg shadow-soft transition">
+                <span x-show="!bulkUploading">⬆️ <span x-text="`${bulkQueue.length}건 업로드`"></span></span>
+                <span x-show="bulkUploading">업로드 중...</span>
+              </button>
+            </div>
+          </div>
+          <div class="border border-ink-200 rounded-lg overflow-hidden">
+            <table class="w-full text-sm">
+              <thead class="bg-ink-50 text-ink-500 text-xs uppercase tracking-wider">
+                <tr>
+                  <th class="text-left px-3 py-2">파일명</th>
+                  <th class="text-left px-3 py-2">크기</th>
+                  <th class="text-left px-3 py-2">슬롯 (수정 가능)</th>
+                  <th class="px-2 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="(item, idx) in bulkQueue" :key="idx">
+                  <tr class="border-t border-ink-200" :class="item.guessed ? 'bg-amber-50/50' : ''">
+                    <td class="px-3 py-2 font-mono text-xs truncate max-w-[260px]" x-text="item.name"></td>
+                    <td class="px-3 py-2 text-ink-500 whitespace-nowrap" x-text="`${(item.size/1024).toFixed(1)} KB`"></td>
+                    <td class="px-3 py-2">
+                      <select x-model="item.slotId"
+                              class="text-xs bg-white border border-ink-200 rounded px-2 py-1 focus:border-brand-500 focus:outline-none">
+                        <template x-for="slot in slots" :key="slot.id">
+                          <option :value="slot.id" x-text="slot.label"></option>
+                        </template>
+                      </select>
+                      <span x-show="item.guessed" class="ml-1 text-[10px] text-amber-600">자동추정</span>
+                    </td>
+                    <td class="px-2 py-2 text-right">
+                      <button @click="bulkQueue.splice(idx, 1)" class="text-ink-400 hover:text-red-500 text-lg leading-none">×</button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      <button @click="step = 2" :disabled="!currentRunId || Object.keys(uploadedFiles).length === 0"
-              class="px-4 py-2 bg-blue-600 disabled:bg-slate-700 rounded">➡️ 다음: 파싱</button>
-    </section>
+      <!-- 12 slot grid (개별 업로드) -->
+      <details x-show="currentRunId" class="bg-white rounded-2xl shadow-soft border border-ink-200">
+        <summary class="px-6 py-4 cursor-pointer text-base font-semibold flex items-center justify-between hover:bg-ink-50 rounded-t-2xl">
+          <span>📑 슬롯별 개별 업로드 (정밀 제어)</span>
+          <span class="text-xs text-ink-500">12개 슬롯</span>
+        </summary>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 px-6 pb-6">
+          <template x-for="slot in slots" :key="slot.id">
+            <div class="border border-ink-200 rounded-xl p-3 hover:border-brand-400 transition bg-ink-50/40">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-sm font-semibold text-ink-900" x-text="slot.label"></span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                      :class="slot.required ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'"
+                      x-text="slot.required ? '필수' : '선택'"></span>
+              </div>
+              <p class="text-[11px] text-ink-500 mb-2 truncate" x-text="slot.description"></p>
+              <input type="file" :accept="slot.accept"
+                     @change="uploadFile(slot.id, $event.target.files[0]); $event.target.value=''"
+                     class="text-xs w-full file:mr-2 file:px-2 file:py-1 file:rounded file:border-0 file:bg-brand-50 file:text-brand-800 file:font-medium file:cursor-pointer hover:file:bg-brand-100" />
+              <ul class="mt-1 space-y-0.5">
+                <template x-for="f in (uploadedFiles[slot.id] || [])">
+                  <li class="text-[11px] text-ink-500 truncate">📄 <span x-text="f"></span></li>
+                </template>
+              </ul>
+            </div>
+          </template>
+        </div>
+      </details>
 
-    <!-- Step 2: 파싱 + 팩트 -->
-    <section x-show="step === 2" class="bg-slate-800 p-6 rounded-lg space-y-4">
-      <h2 class="text-xl font-bold">② 파싱 & 팩트 추출</h2>
-      <div class="flex flex-wrap gap-2">
-        <button @click="parseAll()" class="px-4 py-2 bg-blue-600 rounded">🚀 파싱 시작</button>
-        <button @click="extractFacts()" class="px-4 py-2 bg-blue-600 rounded">🔬 팩트 추출</button>
+      <!-- Next button -->
+      <div x-show="currentRunId && hasAnyUpload()" class="flex justify-end">
+        <button @click="step = 2" class="px-6 py-3 bg-brand-800 hover:bg-brand-500 text-white font-semibold rounded-lg shadow-soft transition">
+          다음 → 파싱 & 팩트 추출
+        </button>
       </div>
-      <pre x-show="parseResult" class="text-xs bg-slate-900 p-3 rounded overflow-auto max-h-64" x-text="JSON.stringify(parseResult, null, 2)"></pre>
-      <pre x-show="factSheet" class="text-xs bg-slate-900 p-3 rounded overflow-auto max-h-96" x-text="JSON.stringify(factSheet, null, 2)"></pre>
-      <button @click="step = 3" :disabled="!factSheet" class="px-4 py-2 bg-blue-600 disabled:bg-slate-700 rounded">➡️ 다음: Draft</button>
     </section>
 
-    <!-- Step 3: Draft -->
-    <section x-show="step === 3" class="bg-slate-800 p-6 rounded-lg space-y-4">
-      <h2 class="text-xl font-bold">③ Draft 생성</h2>
-      <button @click="generateDraft()" :disabled="generating" class="px-4 py-2 bg-blue-600 disabled:bg-slate-700 rounded">
-        <span x-text="generating ? '⏳ 생성 중...' : '📝 Draft 생성 (스트리밍)'"></span>
+    <!-- ════════ Step 2: 파싱 + 팩트 ════════ -->
+    <section x-show="step === 2" class="bg-white rounded-2xl shadow-soft border border-ink-200 p-6 space-y-4">
+      <h3 class="text-lg font-semibold">② 파싱 & 팩트 추출</h3>
+      <div class="flex gap-2 flex-wrap">
+        <button @click="parseAll()" class="px-4 py-2 bg-brand-800 hover:bg-brand-500 text-white font-semibold rounded-lg shadow-soft transition">🚀 파싱 시작</button>
+        <button @click="extractFacts()" class="px-4 py-2 bg-white border border-brand-400 text-brand-800 font-semibold rounded-lg hover:bg-brand-50 transition">🔬 팩트 추출</button>
+      </div>
+      <div x-show="parseResult" class="bg-ink-50 rounded-lg p-4 border border-ink-200">
+        <h4 class="text-sm font-semibold mb-2 text-ink-600">파싱 결과</h4>
+        <pre class="text-xs overflow-auto max-h-64 text-ink-900" x-text="JSON.stringify(parseResult, null, 2)"></pre>
+      </div>
+      <div x-show="factSheet" class="bg-ink-50 rounded-lg p-4 border border-ink-200">
+        <h4 class="text-sm font-semibold mb-2 text-ink-600">FactSheet</h4>
+        <pre class="text-xs overflow-auto max-h-96 text-ink-900" x-text="JSON.stringify(factSheet, null, 2)"></pre>
+      </div>
+      <div class="flex justify-end pt-2">
+        <button @click="step = 3" :disabled="!factSheet"
+                class="px-6 py-3 bg-brand-800 hover:bg-brand-500 disabled:bg-ink-200 disabled:text-ink-500 text-white font-semibold rounded-lg shadow-soft transition">
+          다음 → Draft 생성
+        </button>
+      </div>
+    </section>
+
+    <!-- ════════ Step 3: Draft ════════ -->
+    <section x-show="step === 3" class="bg-white rounded-2xl shadow-soft border border-ink-200 p-6 space-y-4">
+      <h3 class="text-lg font-semibold">③ Draft 생성</h3>
+      <button @click="generateDraft()" :disabled="generating"
+              class="px-4 py-2 bg-brand-800 hover:bg-brand-500 disabled:bg-ink-200 text-white font-semibold rounded-lg shadow-soft transition">
+        <span x-show="!generating">📝 Draft 생성 (스트리밍)</span>
+        <span x-show="generating">생성 중...</span>
       </button>
-      <div x-show="thinkingBuffer" class="bg-yellow-900/20 border border-yellow-700 p-3 rounded text-xs">
-        <p class="font-bold text-yellow-400 mb-1">💭 Thinking</p>
-        <pre class="whitespace-pre-wrap" x-text="thinkingBuffer.slice(-2000)"></pre>
+      <div x-show="thinkingBuffer" class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+        <p class="text-xs font-semibold text-amber-700 mb-1">💭 Thinking</p>
+        <pre class="text-[11px] text-amber-900 whitespace-pre-wrap max-h-48 overflow-auto" x-text="thinkingBuffer.slice(-2000)"></pre>
       </div>
-      <article x-show="draftBuffer" class="prose prose-invert max-w-none bg-slate-900 p-4 rounded overflow-auto"
-               x-html="renderMarkdown(draftBuffer)"></article>
-      <button @click="step = 4" :disabled="!draftBuffer" class="px-4 py-2 bg-blue-600 disabled:bg-slate-700 rounded">➡️ Red Team</button>
+      <article x-show="draftBuffer" class="prose prose-slate max-w-none bg-ink-50 rounded-lg p-6 border border-ink-200 overflow-auto" x-html="renderMarkdown(draftBuffer)"></article>
+      <div class="flex justify-end pt-2">
+        <button @click="step = 4" :disabled="!draftBuffer" class="px-6 py-3 bg-brand-800 hover:bg-brand-500 disabled:bg-ink-200 disabled:text-ink-500 text-white font-semibold rounded-lg shadow-soft transition">
+          다음 → Red Team
+        </button>
+      </div>
     </section>
 
-    <!-- Step 4: Red Team -->
-    <section x-show="step === 4" class="bg-slate-800 p-6 rounded-lg space-y-4">
-      <h2 class="text-xl font-bold">④ Red Team 공방</h2>
+    <!-- ════════ Step 4: Red Team ════════ -->
+    <section x-show="step === 4" class="bg-white rounded-2xl shadow-soft border border-ink-200 p-6 space-y-4">
+      <h3 class="text-lg font-semibold">④ Red Team 공방</h3>
       <div class="flex gap-3 items-center">
-        <label>라운드:</label>
-        <input type="number" x-model.number="rtRounds" min="1" max="3" class="w-16 p-1 bg-slate-900 border border-slate-700 rounded" />
-        <button @click="runRedteam()" class="px-4 py-2 bg-red-600 rounded">🔥 실행</button>
+        <label class="text-sm font-medium text-ink-600">라운드</label>
+        <input type="number" x-model.number="rtRounds" min="1" max="3"
+               class="w-16 px-2 py-1 bg-ink-50 border border-ink-200 rounded focus:border-brand-500 focus:outline-none" />
+        <button @click="runRedteam()" class="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-lg shadow-soft transition">🔥 실행</button>
       </div>
-      <pre x-show="redteamResult" class="text-xs bg-slate-900 p-3 rounded overflow-auto max-h-96" x-text="JSON.stringify(redteamResult, null, 2)"></pre>
-      <button @click="step = 5" class="px-4 py-2 bg-blue-600 rounded">➡️ Final Touch</button>
+      <div x-show="redteamResult" class="bg-ink-50 rounded-lg p-4 border border-ink-200">
+        <pre class="text-xs overflow-auto max-h-96 text-ink-900" x-text="JSON.stringify(redteamResult, null, 2)"></pre>
+      </div>
+      <div class="flex justify-end pt-2">
+        <button @click="step = 5" class="px-6 py-3 bg-brand-800 hover:bg-brand-500 text-white font-semibold rounded-lg shadow-soft transition">
+          다음 → Final Touch
+        </button>
+      </div>
     </section>
 
-    <!-- Step 5: Final Touch + Export -->
-    <section x-show="step === 5" class="bg-slate-800 p-6 rounded-lg space-y-4">
-      <h2 class="text-xl font-bold">⑤ Final Touch & Export</h2>
+    <!-- ════════ Step 5: Final ════════ -->
+    <section x-show="step === 5" class="bg-white rounded-2xl shadow-soft border border-ink-200 p-6 space-y-4">
+      <h3 class="text-lg font-semibold">⑤ Final Touch & Export</h3>
+      <p class="text-sm text-ink-500">최신 draft 를 다운로드하거나 Notion으로 push 하세요.</p>
       <div class="flex flex-wrap gap-3">
-        <a :href="downloadUrl('md')" target="_blank" class="px-4 py-2 bg-green-600 rounded">📝 final.md</a>
-        <a :href="downloadUrl('docx')" target="_blank" class="px-4 py-2 bg-green-600 rounded">📄 final.docx</a>
+        <a :href="downloadUrl('md')" target="_blank" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg shadow-soft transition">📝 final.md 다운로드</a>
+        <a :href="downloadUrl('docx')" target="_blank" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg shadow-soft transition">📄 final.docx 다운로드</a>
       </div>
-      <p class="text-xs text-slate-400">다운로드 시 X-API-Key 헤더가 필요할 수 있습니다 — 백엔드 설정 확인.</p>
     </section>
-  </main>
 
-  <script src="api-client.js"></script>
-  <script src="app.js"></script>
+    <footer class="mt-12 pt-6 border-t border-ink-200 text-center text-xs text-ink-500">
+      <p>IC Memo Agent v0.2 · <a href="https://github.com/Ron-An/ic_memo_agent" target="_blank" class="text-brand-800 hover:underline">GitHub</a> · Opus 4.6 + Extended Thinking + Red Team 4 페르소나</p>
+    </footer>
+
+  </main>
+</div>
+
+<script src="api-client.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

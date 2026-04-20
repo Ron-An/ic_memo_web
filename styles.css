@@ -1,53 +1,35 @@
+/* IC Memo Agent — light theme (slate + blue) */
+
 [x-cloak] { display: none !important; }
 
-.prose pre {
-  background: #0f172a;
-  padding: 0.75rem;
-  border-radius: 0.5rem;
-  overflow: auto;
+html { scroll-behavior: smooth; }
+
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-.prose table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 1rem 0;
-}
+/* ─── Markdown 본문 (prose) ───────────────────────────────────── */
 
-.prose th,
-.prose td {
-  border: 1px solid #334155;
-  padding: 0.4rem 0.7rem;
-  text-align: left;
-}
-
-.prose th {
-  background: #1e293b;
-}
-
-.prose blockquote {
-  border-left: 3px solid #3b82f6;
-  padding-left: 0.8rem;
-  color: #cbd5e1;
-  margin: 1rem 0;
-}
-
-.prose code {
-  background: #0f172a;
-  padding: 0.1rem 0.35rem;
-  border-radius: 0.25rem;
-  font-size: 0.9em;
+.prose {
+  color: #0F172A;
+  line-height: 1.7;
+  font-size: 0.95rem;
 }
 
 .prose h1, .prose h2, .prose h3, .prose h4 {
-  color: #f1f5f9;
-  margin-top: 1.4rem;
-  margin-bottom: 0.6rem;
+  color: #0F172A;
   font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-top: 1.6rem;
+  margin-bottom: 0.6rem;
 }
 
-.prose h1 { font-size: 1.6rem; }
-.prose h2 { font-size: 1.35rem; }
-.prose h3 { font-size: 1.15rem; }
+.prose h1 { font-size: 1.6rem; border-bottom: 1px solid #E2E8F0; padding-bottom: 0.4rem; }
+.prose h2 { font-size: 1.3rem; color: #1E40AF; }
+.prose h3 { font-size: 1.1rem; }
+
+.prose p { margin: 0.6rem 0; }
 
 .prose ul, .prose ol {
   margin: 0.6rem 0 0.6rem 1.4rem;
@@ -56,6 +38,91 @@
 .prose li { margin: 0.2rem 0; }
 
 .prose a {
-  color: #60a5fa;
+  color: #1E40AF;
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
+.prose a:hover { color: #3B82F6; }
+
+.prose code {
+  background: #EFF4FB;
+  color: #1E40AF;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.prose pre {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  color: #0F172A;
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  overflow: auto;
+  font-size: 0.85rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.prose pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+.prose th, .prose td {
+  border: 1px solid #E2E8F0;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose th {
+  background: #EFF4FB;
+  color: #1E40AF;
+  font-weight: 600;
+}
+
+.prose tr:nth-child(even) td { background: rgba(15, 23, 42, 0.02); }
+
+.prose blockquote {
+  border-left: 3px solid #3B82F6;
+  background: #EFF4FB;
+  padding: 0.6rem 0.9rem;
+  color: #475569;
+  margin: 1rem 0;
+  border-radius: 0 0.4rem 0.4rem 0;
+}
+
+.prose hr {
+  border: 0;
+  border-top: 1px solid #E2E8F0;
+  margin: 1.4rem 0;
+}
+
+/* ─── Custom Scrollbar (subtle) ───────────────────────────────── */
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 6px;
+  border: 2px solid #F8FAFC;
+}
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+/* ─── 미세 애니메이션 ───────────────────────────────────────── */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+section { animation: fadeInUp 0.25s ease-out; }
