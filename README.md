@@ -14,9 +14,18 @@ web/
 
 ## 로컬 테스트
 
+포함된 포터블 배치 스크립트를 사용한다 — 유저명/Python 설치 경로에 무관하게 어느 PC 에서든 동작 (PATH 의 `python` 또는 `py` 런처 자동 탐색).
+
 ```powershell
-cd C:\Users\akn90\ic_memo_agent\web
-"C:/Users/akn90/AppData/Roaming/IBM/SPSS Statistics/one/Python310/Scripts/python.exe" -m http.server 5500
+# 더블클릭 또는 터미널에서:
+.\start_server.bat          # 기본 포트 5500
+.\start_server.bat 8000     # 다른 포트
+```
+
+시스템 Python 이 PATH 에 있으면 직접 호출도 가능:
+
+```powershell
+python -m http.server 5500
 ```
 
 브라우저에서 `http://localhost:5500` 열면 5 단계 wizard 가 표시된다.

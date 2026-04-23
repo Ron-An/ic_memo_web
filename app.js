@@ -350,7 +350,8 @@ function icMemoApp() {
 
     renderMarkdown(md) {
       try {
-        return marked.parse(md || "");
+        const html = marked.parse(md || "");
+        return DOMPurify.sanitize(html);
       } catch (e) {
         return `<pre>${(md || "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]))}</pre>`;
       }
